@@ -1,1 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Just Eat ID Lookup</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap');
 
+  :root {
+    --orange: #FF6B1A;
+    --orange-dim: #cc4f00;
+    --bg: #0f0e0d;
+    --surface: #1a1917;
+    --border: #2e2c29;
+    --text: #f0ede8;
+    --muted: #7a7670;
+    --green: #4caf7d;
+    --red: #e05252;
+    --yellow: #f0b429;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 24px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 2.4rem;
+    letter-spacing: -0.03em;
+    color: var(--text);
+  }
+
+  .logo span { color: var(--orange); }
+
+  .subtitle {
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-top: 6px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    width: 100%;
+    max-width: 780px;
+    margin-bottom: 24px;
+  }
+
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 8px;
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+  }
+
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--orange);
+    background: rgba(255,107,26,0.05);
+  }
+
+  .drop-zone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+
+  .drop-icon {
+    font-size: 2rem;
+    margin-bottom: 12px;
+  }
+
+  .drop-label {
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .drop-hint {
+    font-size: 0.72rem;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  .file-loaded {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    background: rgba(76,175,125,0.1);
+    border: 1px solid rgba(76,175,125,0.3);
+    border-radius: 8px;
+    margin-top: 16px;
+  }
+
+  .file-loaded .name {
+    font-size: 0.85rem;
+    color: var(--green);
+    flex: 1;
+  }
+
+  .file-loaded .count {
+    font-size: 0.72rem;
+    color: var(--muted);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 28px;
+    background: var(--orange);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.9rem;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+    width: 100%;
+    justify-content: center;
+    margin-top: 20px;
+  }
+
+  .btn:hover:not(:disabled) { background: var(--orange-dim); transform: translateY(-1px); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .btn-secondary {
+    background: transparent;
+    border: 1px solid var(--orange);
+    color: var(--orange);
+  }
+  .btn-secondary:hover:not(:disabled) { background: rgba(255,107,26,0.1); }
+
+  /* Progress */
+  .progress-bar-wrap {
+    background: var(--border);
+    border-radius: 4px;
+    height: 6px;
+    overflow: hidden;
+    margin: 16px 0 8px;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    background: var(--orange);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+    width: 0%;
+  }
+
+  .progress-label {
+    font-size: 0.72rem;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+  }
+
+  /* Results table */
+  .results-wrap {
+    overflow-x: auto;
+    margin-top: 8px;
+    max-height: 420px;
+    overflow-y: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+  }
+
+  thead th {
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    color: var(--muted);
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+
+  tbody tr:hover { background: rgba(255,255,255,0.02); }
+
+  td {
+    padding: 10px 12px;
+    vertical-align: middle;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.68rem;
+    letter-spacing: 0.05em;
+    font-weight: 500;
+  }
+
+  .badge-found { background: rgba(76,175,125,0.15); color: var(--green); }
+  .badge-notfound { background: rgba(224,82,82,0.15); color: var(--red); }
+  .badge-pending { background: rgba(240,180,41,0.15); color: var(--yellow); }
+
+  .jet-id {
+    font-family: 'DM Mono', monospace;
+    color: var(--orange);
+    font-size: 0.75rem;
+  }
+
+  .stats-row {
+    display: flex;
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  .stat {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    text-align: center;
+  }
+
+  .stat-val {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 800;
+  }
+
+  .stat-val.green { color: var(--green); }
+  .stat-val.red { color: var(--red); }
+  .stat-val.yellow { color: var(--yellow); }
+
+  .stat-lbl {
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  #section-results { display: none; }
+  #section-download { display: none; }
+
+  .spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .current-item {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">JET <span>ID</span> Lookup</div>
+  <div class="subtitle">Just Eat Restaurant ID Finder</div>
+</header>
+
+<!-- Upload -->
+<div class="card" id="section-upload">
+  <div class="drop-zone" id="dropZone">
+    <input type="file" id="fileInput" accept=".csv,.xlsx,.xls">
+    <div class="drop-icon">📂</div>
+    <div class="drop-label">Drop your CSV here</div>
+    <div class="drop-hint">or click to browse — CSV with restaurant name + postcode columns</div>
+  </div>
+  <div id="fileInfo" style="display:none" class="file-loaded">
+    <span>✓</span>
+    <span class="name" id="fileName"></span>
+    <span class="count" id="rowCount"></span>
+  </div>
+  <button class="btn" id="startBtn" disabled onclick="startLookup()">
+    Start Lookup
+  </button>
+</div>
+
+<!-- Progress -->
+<div class="card" id="section-progress" style="display:none">
+  <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:16px;">Looking up restaurants...</div>
+  <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressFill"></div></div>
+  <div class="progress-label">
+    <span id="progressText">0 / 0</span>
+    <span id="progressPct">0%</span>
+  </div>
+  <div class="current-item" id="currentItem">—</div>
+
+  <div class="stats-row">
+    <div class="stat"><div class="stat-val green" id="statFound">0</div><div class="stat-lbl">Found</div></div>
+    <div class="stat"><div class="stat-val red" id="statNotFound">0</div><div class="stat-lbl">Not Found</div></div>
+    <div class="stat"><div class="stat-val yellow" id="statRemaining">0</div><div class="stat-lbl">Remaining</div></div>
+  </div>
+</div>
+
+<!-- Results -->
+<div class="card" id="section-results">
+  <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:16px;">Results</div>
+  <div class="results-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Restaurant</th>
+          <th>Postcode</th>
+          <th>JET ID</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="resultsBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Download -->
+<div class="card" id="section-download">
+  <button class="btn" onclick="downloadExcel()">⬇ Download Excel with JET IDs</button>
+  <button class="btn btn-secondary" style="margin-top:10px" onclick="resetTool()">Start Over</button>
+</div>
+
+<script>
+let restaurants = [];
+let results = [];
+
+// File input
+document.getElementById('fileInput').addEventListener('change', e => handleFile(e.target.files[0]));
+const dz = document.getElementById('dropZone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); handleFile(e.dataTransfer.files[0]); });
+
+function handleFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const text = e.target.result;
+    parseCSV(text, file.name);
+  };
+  reader.readAsText(file);
+}
+
+function parseCSV(text, filename) {
+  const lines = text.trim().split(/\r?\n/);
+  // Skip header row
+  const data = lines.slice(1).map(l => {
+    const cols = l.split(',');
+    // Column 1 = name, Column 3 = postcode (0-indexed)
+    const name = (cols[1] || '').trim().replace(/^"|"$/g, '');
+    const postcode = (cols[3] || '').trim().replace(/^"|"$/g, '');
+    return { name, postcode };
+  }).filter(r => r.name && r.postcode);
+
+  restaurants = data;
+  document.getElementById('fileName').textContent = filename;
+  document.getElementById('rowCount').textContent = `${data.length} restaurants`;
+  document.getElementById('fileInfo').style.display = 'flex';
+  document.getElementById('startBtn').disabled = false;
+}
+
+function similarity(a, b) {
+  a = a.toLowerCase().trim();
+  b = b.toLowerCase().trim();
+  if (a === b) return 1;
+  const longer = a.length > b.length ? a : b;
+  const shorter = a.length > b.length ? b : a;
+  if (longer.length === 0) return 1;
+  // Check if shorter is contained in longer
+  if (longer.includes(shorter)) return 0.85;
+  // Simple bigram similarity
+  const bigrams = s => new Set([...Array(s.length - 1)].map((_, i) => s.slice(i, i+2)));
+  const aBi = bigrams(a), bBi = bigrams(b);
+  const intersection = [...aBi].filter(x => bBi.has(x)).length;
+  return (2 * intersection) / (aBi.size + bBi.size);
+}
+
+async function getJetId(name, postcode) {
+  const clean = postcode.replace(/\s/g, '').toUpperCase();
+  const jeUrl = `https://uk.api.just-eat.io/restaurants/bypostcode/${clean}`;
+  // Try direct first, then fall back to CORS proxies
+  const proxies = [
+    jeUrl,
+    `https://corsproxy.io/?${encodeURIComponent(jeUrl)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(jeUrl)}`,
+  ];
+
+  for (const url of proxies) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const data = await res.json();
+      const list = data.Restaurants || [];
+      if (!list.length) return null;
+
+      let best = null, bestScore = 0;
+      for (const r of list) {
+        const score = similarity(name, r.Name || '');
+        if (score > bestScore) { bestScore = score; best = r; }
+      }
+      return (best && bestScore >= 0.55) ? { id: best.Id, matchedName: best.Name } : null;
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
+async function startLookup() {
+  document.getElementById('section-progress').style.display = 'block';
+  document.getElementById('section-results').style.display = 'block';
+  document.getElementById('startBtn').disabled = true;
+
+  const total = restaurants.length;
+  let found = 0, notFound = 0;
+  results = [];
+
+  document.getElementById('statRemaining').textContent = total;
+
+  for (let i = 0; i < restaurants.length; i++) {
+    const { name, postcode } = restaurants[i];
+    document.getElementById('currentItem').textContent = `→ ${name} (${postcode})`;
+    document.getElementById('progressText').textContent = `${i + 1} / ${total}`;
+    const pct = Math.round(((i + 1) / total) * 100);
+    document.getElementById('progressPct').textContent = pct + '%';
+    document.getElementById('progressFill').style.width = pct + '%';
+
+    const match = await getJetId(name, postcode);
+    const row = { name, postcode, jetId: match?.id || null, matchedName: match?.matchedName || null };
+    results.push(row);
+
+    if (match) { found++; } else { notFound++; }
+    document.getElementById('statFound').textContent = found;
+    document.getElementById('statNotFound').textContent = notFound;
+    document.getElementById('statRemaining').textContent = total - i - 1;
+
+    // Add to table
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${name}</td>
+      <td>${postcode}</td>
+      <td>${match ? `<span class="jet-id">${match.id}</span>` : '<span style="color:var(--muted)">—</span>'}</td>
+      <td><span class="badge ${match ? 'badge-found' : 'badge-notfound'}">${match ? 'FOUND' : 'NOT FOUND'}</span></td>
+    `;
+    document.getElementById('resultsBody').appendChild(tr);
+    tr.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    await new Promise(r => setTimeout(r, 250));
+  }
+
+  document.getElementById('currentItem').textContent = '✓ Complete';
+  document.getElementById('section-download').style.display = 'block';
+}
+
+function downloadExcel() {
+  const wb = XLSX.utils.book_new();
+  const data = [['Restaurant Name', 'Postcode', 'JET ID', 'Matched Name', 'Status']];
+  for (const r of results) {
+    data.push([r.name, r.postcode, r.jetId || '', r.matchedName || '', r.jetId ? 'Found' : 'Not Found']);
+  }
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [{ wch: 40 }, { wch: 14 }, { wch: 45 }, { wch: 40 }, { wch: 12 }];
+  XLSX.utils.book_append_sheet(wb, ws, 'Just Eat IDs');
+  XLSX.writeFile(wb, 'JUSTEAT_with_ids.xlsx');
+}
+
+function resetTool() {
+  restaurants = []; results = [];
+  document.getElementById('fileInfo').style.display = 'none';
+  document.getElementById('startBtn').disabled = true;
+  document.getElementById('section-progress').style.display = 'none';
+  document.getElementById('section-results').style.display = 'none';
+  document.getElementById('section-download').style.display = 'none';
+  document.getElementById('resultsBody').innerHTML = '';
+  document.getElementById('fileInput').value = '';
+  document.getElementById('progressFill').style.width = '0%';
+}
+</script>
+</body>
+</html>
