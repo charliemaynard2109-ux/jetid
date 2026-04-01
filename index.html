@@ -393,7 +393,9 @@ function parseCSV(text, filename) {
     const cols = l.split(',');
     const name = (cols[1] || '').trim().replace(/^"|"$/g, '');
     const postcode = (cols[2] || '').trim().replace(/^"|"$/g, '');
-    return { name, postcode };
+    const region = (cols[4] || '').trim().replace(/^"|"$/g, '');
+    const owner = (cols[5] || '').trim().replace(/^"|"$/g, '');
+    return { name, postcode, region, owner };
   }).filter(r => r.name && r.postcode);
 
   restaurants = data;
@@ -496,7 +498,7 @@ async function startLookup() {
 
     await Promise.all(batch.map(async ({ name, postcode }) => {
       const match = await getJetId(name, postcode);
-      const row = { name, postcode, jetId: match?.id || null, matchedName: match?.matchedName || null };
+      const row = { name, postcode, region, owner, jetId: match?.id || null, matchedName: match?.matchedName || null };
       results.push(row);
       addResultRow(name, postcode, match);
 
@@ -522,9 +524,9 @@ async function startLookup() {
 
 function downloadExcel() {
   const wb = XLSX.utils.book_new();
-  const data = [['Restaurant Name', 'Postcode', 'JET ID', 'Matched Name', 'Status']];
+  const data = [['Restaurant Name', 'Postcode', 'Region', 'Owner', 'JET ID', 'Matched Name', 'Status']];
   for (const r of results) {
-    data.push([r.name, r.postcode, r.jetId || '', r.matchedName || '', r.jetId ? 'Found' : 'Not Found']);
+    data.push([r.name, r.postcode, r.region || '', r.owner || '', r.jetId || '', r.matchedName || '', r.jetId ? 'Found' : 'Not Found']);
   }
   const ws = XLSX.utils.aoa_to_sheet(data);
   ws['!cols'] = [{ wch: 40 }, { wch: 14 }, { wch: 45 }, { wch: 40 }, { wch: 12 }];
