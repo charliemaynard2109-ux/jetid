@@ -396,7 +396,7 @@ function parseCSV(text, filename) {
     const cols = l.split(',');
     // Column 1 = name, Column 3 = postcode (0-indexed)
     const name = (cols[1] || '').trim().replace(/^"|"$/g, '');
-    const postcode = (cols[3] || '').trim().replace(/^"|"$/g, '');
+    const postcode = (cols[2] || '').trim().replace(/^"|"$/g, '');
     return { name, postcode };
   }).filter(r => r.name && r.postcode);
 
